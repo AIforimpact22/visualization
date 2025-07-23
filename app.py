@@ -1,46 +1,67 @@
 import streamlit as st
 import pandas as pd
-import sqlite3
+from db_handler import DatabaseManager
 
 st.set_page_config(page_title="Sales & Sales Items Browser", page_icon="🧾")
 st.title("🧾 Sales & Sales Items Data Browser")
 
-DB_FILE = "yourfile.db"   # update with your actual .db path
+db = DatabaseManager()
 
-# --- Utility: List tables in the database
-def list_tables(conn):
-    query = "SELECT name FROM sqlite_master WHERE type='table'"
-    return [row[0] for row in conn.execute(query)]
+# Utility: list all table names in the current DB (useful for finding typos)
+@st.cache_data(ttl=600)
+def get_db_tables():
+    df = db.fetch_data("SELECT name FROM sqlite_master WHERE type='table';")
+    return df['name'].tolist() if not df.empty else []
 
-# --- Main load function
-@st.cache_data(ttl=60*5)
-def load_table(table):
-    with sqlite3.connect(DB_FILE) as conn:
-        df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
-    return df
+tables = get_db_tables()
+st.write("**Available tables in the database:**", tables)
 
-with sqlite3.connect(DB_FILE) as conn:
-    tables = list_tables(conn)
-st.write("**Available tables in database:**", tables)
+# Try common variants for table names
+def first_existing_table(possibles):
+    for name in possibles:
+        if name in tables:
+            return name
+    return None
 
-# Adjust table names here if needed!
-sales_table = "sales"
-salesitem_table = "salesitems"  # with "s" as per your hint!
+sales_table     = first_existing_table(["sales", "Sales"])
+salesitems_table = first_existing_table(["salesitems", "salesitem", "SalesItems", "SalesItem"])
+
+if not sales_table or not salesitems_table:
+    st.error(f"Could not find required tables. Found: {tables}")
+    st.stop()
+
+# Load tables
+@st.cache_data(ttl=300)
+def load_table(tablename, ordercol=None):
+    q = f"SELECT * FROM {tablename}"
+    if ordercol:
+        q += f" ORDER BY {ordercol} DESC"
+    return db.fetch_data(q)
+
+df_sales = load_table(sales_table, ordercol="saleid")
+df_salesitems = load_table(salesitems_table, ordercol="salesitemid")
 
 tab1, tab2 = st.tabs(["Sales", "Sales Items"])
 
 with tab1:
-    st.subheader(f"{sales_table} Table")
-    try:
-        df_sales = load_table(sales_table)
+    st.subheader(f"Table: {sales_table}")
+    if df_sales.empty:
+        st.info("No sales records found.")
+    else:
         st.dataframe(df_sales, use_container_width=True)
-    except Exception as e:
-        st.error(f"Could not load table `{sales_table}`: {e}")
 
 with tab2:
-    st.subheader(f"{salesitem_table} Table")
-    try:
-        df_salesitem = load_table(salesitem_table)
-        st.dataframe(df_salesitem, use_container_width=True)
-    except Exception as e:
-        st.error(f"Could not load table `{salesitem_table}`: {e}")
+    st.subheader(f"Table: {salesitems_table}")
+    if df_salesitems.empty:
+        st.info("No sales items found.")
+    else:
+        st.dataframe(df_salesitems, use_container_width=True)
+
+# Optional: Drill-down - show salesitems for a selected sale
+if not df_sales.empty and not df_salesitems.empty:
+    with st.expander("Show sale details (click to expand)", expanded=False):
+        saleids = df_sales['saleid'].unique()
+        selected = st.selectbox("Select a Sale ID to view items", saleids)
+        subitems = df_salesitems[df_salesitems['saleid'] == selected]
+        st.write(f"Items in Sale ID {selected}:")
+        st.dataframe(subitems, use_container_width=True)
