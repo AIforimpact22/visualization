@@ -1,58 +1,46 @@
 import streamlit as st
 import pandas as pd
-
-from db_handler import DatabaseManager
+import sqlite3
 
 st.set_page_config(page_title="Sales & Sales Items Browser", page_icon="🧾")
 st.title("🧾 Sales & Sales Items Data Browser")
 
-# ────────── Connect to DB ──────────
-db = DatabaseManager()
+DB_FILE = "yourfile.db"   # update with your actual .db path
 
-# ────────── Load DataFrames ──────────
-@st.cache_data(ttl=60*5, show_spinner=False)
-def get_sales():
-    return db.fetch_data("SELECT * FROM sales ORDER BY saleid DESC")
+# --- Utility: List tables in the database
+def list_tables(conn):
+    query = "SELECT name FROM sqlite_master WHERE type='table'"
+    return [row[0] for row in conn.execute(query)]
 
-@st.cache_data(ttl=60*5, show_spinner=False)
-def get_salesitems():
-    return db.fetch_data("SELECT * FROM salesitem ORDER BY salesitemid DESC")
+# --- Main load function
+@st.cache_data(ttl=60*5)
+def load_table(table):
+    with sqlite3.connect(DB_FILE) as conn:
+        df = pd.read_sql_query(f"SELECT * FROM {table}", conn)
+    return df
 
-sales_df = get_sales()
-salesitem_df = get_salesitems()
+with sqlite3.connect(DB_FILE) as conn:
+    tables = list_tables(conn)
+st.write("**Available tables in database:**", tables)
 
-# ────────── UI Layout ──────────
+# Adjust table names here if needed!
+sales_table = "sales"
+salesitem_table = "salesitems"  # with "s" as per your hint!
+
 tab1, tab2 = st.tabs(["Sales", "Sales Items"])
 
 with tab1:
-    st.subheader("Sales Table")
-    if sales_df.empty:
-        st.info("No sales records found.")
-    else:
-        st.dataframe(sales_df, use_container_width=True)
-        # Optional: filters or search can be added here
+    st.subheader(f"{sales_table} Table")
+    try:
+        df_sales = load_table(sales_table)
+        st.dataframe(df_sales, use_container_width=True)
+    except Exception as e:
+        st.error(f"Could not load table `{sales_table}`: {e}")
 
 with tab2:
-    st.subheader("Sales Item Table")
-    if salesitem_df.empty:
-        st.info("No sales items found.")
-    else:
-        st.dataframe(salesitem_df, use_container_width=True)
-
-# ────────── (Optional) Preview Uploaded CSVs ──────────
-uploaded_sales = "/mnt/data/Sales.csv"
-uploaded_salesitem = "/mnt/data/salesitem.csv"
-
-with st.expander("Preview uploaded Sales.csv"):
+    st.subheader(f"{salesitem_table} Table")
     try:
-        df = pd.read_csv(uploaded_sales)
-        st.dataframe(df, use_container_width=True)
+        df_salesitem = load_table(salesitem_table)
+        st.dataframe(df_salesitem, use_container_width=True)
     except Exception as e:
-        st.warning(f"Could not load Sales.csv: {e}")
-
-with st.expander("Preview uploaded salesitem.csv"):
-    try:
-        df = pd.read_csv(uploaded_salesitem)
-        st.dataframe(df, use_container_width=True)
-    except Exception as e:
-        st.warning(f"Could not load salesitem.csv: {e}")
+        st.error(f"Could not load table `{salesitem_table}`: {e}")
