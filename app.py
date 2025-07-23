@@ -7,23 +7,28 @@ st.title("🧾 Sales & Sales Items Data Browser")
 
 db = DatabaseManager()
 
-# Utility: list all table names in the current DB (useful for finding typos)
+# Utility: list all table names in the current DB (for Postgres, not sqlite)
 @st.cache_data(ttl=600)
 def get_db_tables():
-    df = db.fetch_data("SELECT name FROM sqlite_master WHERE type='table';")
-    return df['name'].tolist() if not df.empty else []
+    sql = """
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+        ORDER BY table_name;
+    """
+    df = db.fetch_data(sql)
+    return df['table_name'].tolist() if not df.empty else []
 
 tables = get_db_tables()
 st.write("**Available tables in the database:**", tables)
 
-# Try common variants for table names
 def first_existing_table(possibles):
     for name in possibles:
         if name in tables:
             return name
     return None
 
-sales_table     = first_existing_table(["sales", "Sales"])
+sales_table = first_existing_table(["sales", "Sales"])
 salesitems_table = first_existing_table(["salesitems", "salesitem", "SalesItems", "SalesItem"])
 
 if not sales_table or not salesitems_table:
