@@ -48,16 +48,18 @@ with tab1:
             for _, row in count_df.iterrows()
         ][:30]
         chart_json = json.dumps(chart_data)
-        d3_code = """
+        # Calculate chart height based on number of groups
+        chart_height = max(100 + len(chart_data) * 18, 180)
+        d3_code = f"""
         <script src="https://d3js.org/d3.v7.min.js"></script>
-        <div id="bar_{label}"></div>
+        <div id="bar_{col}"></div>
         <script>
-        const data = """ + chart_json + """;
+        const data = {chart_json};
         const width = 650;
-        const height = Math.max(100 + data.length * 18, 180);
-        const margin = {top: 40, right: 20, bottom: 30, left: 120};
+        const height = {chart_height};
+        const margin = {{top: 40, right: 20, bottom: 30, left: 120}};
 
-        const svg = d3.select("#bar_{label}")
+        const svg = d3.select("#bar_{col}")
           .append("svg")
           .attr("width", width)
           .attr("height", height)
@@ -107,8 +109,8 @@ with tab1:
             .attr("fill", "#1e293b")
             .attr("font-size", "1.05rem");
         </script>
-        """.replace("{label}", col)
-        components.html(d3_code, height=height + 30)
+        """
+        components.html(d3_code, height=chart_height + 30)
 
 with tab2:
     GROUP_KEY, GROUP_LABEL = st.selectbox(
@@ -183,14 +185,14 @@ with tab2:
             for _, row in top_groups.iterrows()
         ]
         chart_json = json.dumps(chart_data)
-        d3_code = """
+        d3_code = f"""
         <script src="https://d3js.org/d3.v7.min.js"></script>
         <div id="bar_realtime"></div>
         <script>
-        const data = """ + chart_json + """;
+        const data = {chart_json};
         const width = 850;
         const height = 420;
-        const margin = {top: 40, right: 40, bottom: 60, left: 120};
+        const margin = {{top: 40, right: 40, bottom: 60, left: 120}};
 
         const svg = d3.select("#bar_realtime")
           .append("svg")
