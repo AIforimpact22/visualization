@@ -13,15 +13,16 @@ db = DatabaseManager()
 
 @st.cache_data(ttl=2)
 def get_recent_sales(n=10):
-    # Use correct column names: saletime not datetime
+    # Use correct column names: saletime, totalamount
     return db.fetch_data(
         f"SELECT saleid, saletime, totalamount FROM sales ORDER BY saleid DESC LIMIT {n}"
     )
 
 @st.cache_data(ttl=2)
 def get_salesitems_for_sale(saleid):
+    # Use real columns: itemid, quantity, unitprice, totalprice
     return db.fetch_data(
-        "SELECT itemid, quantity, price, total FROM salesitems WHERE saleid = %s ORDER BY salesitemid", (saleid,)
+        "SELECT itemid, quantity, unitprice, totalprice FROM salesitems WHERE saleid = %s ORDER BY salesitemid", (saleid,)
     )
 
 placeholder = st.empty()
@@ -35,11 +36,10 @@ while True:
             time.sleep(REFRESH)
             continue
 
-        # Ensure correct types for plotting
+        # Parse time and order for chart
         sales_df = sales_df.sort_values("saleid")
         sales_df['saletime'] = pd.to_datetime(sales_df['saletime'])
 
-        # Bar chart: sales over time (x=saletime, y=totalamount)
         st.subheader("Recent Sales (Total Amount)")
         st.bar_chart(
             data=sales_df,
