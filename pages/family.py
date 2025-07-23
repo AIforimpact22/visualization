@@ -48,68 +48,71 @@ with tab1:
             for _, row in count_df.iterrows()
         ][:30]
         chart_json = json.dumps(chart_data)
-        # Calculate chart height based on number of groups
         chart_height = max(100 + len(chart_data) * 18, 180)
-        d3_code = f"""
-        <script src="https://d3js.org/d3.v7.min.js"></script>
-        <div id="bar_{col}"></div>
-        <script>
-        const data = {chart_json};
-        const width = 650;
-        const height = {chart_height};
-        const margin = {{top: 40, right: 20, bottom: 30, left: 120}};
+        d3_code = """
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<div id="bar_{col}"></div>
+<script>
+const data = {chart_json};
+const width = 650;
+const height = CHART_HEIGHT;
+const margin = {{top: 40, right: 20, bottom: 30, left: 120}};
 
-        const svg = d3.select("#bar_{col}")
-          .append("svg")
-          .attr("width", width)
-          .attr("height", height)
-          .attr("viewBox", [0, 0, width, height])
-          .attr("style", "max-width: 100%; height: auto; background: #f8fafc; border-radius: 12px;");
+const svg = d3.select("#bar_{col}")
+  .append("svg")
+  .attr("width", width)
+  .attr("height", height)
+  .attr("viewBox", [0, 0, width, height])
+  .attr("style", "max-width: 100%; height: auto; background: #f8fafc; border-radius: 12px;");
 
-        const y = d3.scaleBand()
-            .domain(data.map(d => d.group))
-            .rangeRound([margin.top, height - margin.bottom])
-            .padding(0.14);
+const y = d3.scaleBand()
+    .domain(data.map(d => d.group))
+    .rangeRound([margin.top, height - margin.bottom])
+    .padding(0.14);
 
-        const x = d3.scaleLinear()
-            .domain([0, d3.max(data, d => d.count) * 1.05]).nice()
-            .range([margin.left, width - margin.right]);
+const x = d3.scaleLinear()
+    .domain([0, d3.max(data, d => d.count) * 1.05]).nice()
+    .range([margin.left, width - margin.right]);
 
-        const color = d3.scaleOrdinal(d3.schemeSet2);
+const color = d3.scaleOrdinal(d3.schemeSet2);
 
-        svg.append("g")
-            .attr("fill", d => color(d.group))
-          .selectAll("rect")
-          .data(data)
-          .join("rect")
-            .attr("x", x(0))
-            .attr("y", d => y(d.group))
-            .attr("width", d => x(d.count) - x(0))
-            .attr("height", y.bandwidth())
-            .attr("rx", 7)
-            .attr("fill", (d, i) => color(i));
+svg.append("g")
+    .attr("fill", d => color(d.group))
+  .selectAll("rect")
+  .data(data)
+  .join("rect")
+    .attr("x", x(0))
+    .attr("y", d => y(d.group))
+    .attr("width", d => x(d.count) - x(0))
+    .attr("height", y.bandwidth())
+    .attr("rx", 7)
+    .attr("fill", (d, i) => color(i));
 
-        svg.append("g")
-            .attr("transform", `translate(0,${margin.top})`)
-            .call(d3.axisTop(x).ticks(width/120, "s"))
-            .call(g => g.select(".domain").remove());
+svg.append("g")
+    .attr("transform", `translate(0,${margin.top})`)
+    .call(d3.axisTop(x).ticks(width/120, "s"))
+    .call(g => g.select(".domain").remove());
 
-        svg.append("g")
-            .attr("transform", `translate(${margin.left},0)`)
-            .call(d3.axisLeft(y).tickSize(0))
-            .call(g => g.select(".domain").remove());
+svg.append("g")
+    .attr("transform", `translate(${margin.left},0)`)
+    .call(d3.axisLeft(y).tickSize(0))
+    .call(g => g.select(".domain").remove());
 
-        svg.selectAll("text.value")
-          .data(data)
-          .join("text")
-            .attr("class", "value")
-            .attr("x", d => x(d.count) + 8)
-            .attr("y", d => y(d.group) + y.bandwidth()/2 + 3)
-            .text(d => d3.format(",")(d.count))
-            .attr("fill", "#1e293b")
-            .attr("font-size", "1.05rem");
-        </script>
-        """
+svg.selectAll("text.value")
+  .data(data)
+  .join("text")
+    .attr("class", "value")
+    .attr("x", d => x(d.count) + 8)
+    .attr("y", d => y(d.group) + y.bandwidth()/2 + 3)
+    .text(d => d3.format(",")(d.count))
+    .attr("fill", "#1e293b")
+    .attr("font-size", "1.05rem");
+</script>
+"""
+        # Inject chart_height, chart_json, col safely
+        d3_code = d3_code.replace("{col}", col)
+        d3_code = d3_code.replace("CHART_HEIGHT", str(chart_height))
+        d3_code = d3_code.replace("{chart_json}", chart_json)
         components.html(d3_code, height=chart_height + 30)
 
 with tab2:
@@ -180,70 +183,3 @@ with tab2:
         chart_data = [
             {
                 "group": str(row[GROUP_KEY]) if pd.notna(row[GROUP_KEY]) else "Unknown",
-                "total_sales": float(row['total_sales'])
-            }
-            for _, row in top_groups.iterrows()
-        ]
-        chart_json = json.dumps(chart_data)
-        d3_code = f"""
-        <script src="https://d3js.org/d3.v7.min.js"></script>
-        <div id="bar_realtime"></div>
-        <script>
-        const data = {chart_json};
-        const width = 850;
-        const height = 420;
-        const margin = {{top: 40, right: 40, bottom: 60, left: 120}};
-
-        const svg = d3.select("#bar_realtime")
-          .append("svg")
-          .attr("width", width)
-          .attr("height", height)
-          .attr("viewBox", [0, 0, width, height])
-          .attr("style", "max-width: 100%; height: auto; background: #fff; border-radius: 14px;");
-
-        const y = d3.scaleBand()
-            .domain(data.map(d => d.group))
-            .rangeRound([margin.top, height - margin.bottom])
-            .padding(0.12);
-
-        const x = d3.scaleLinear()
-            .domain([0, d3.max(data, d => d.total_sales) * 1.05]).nice()
-            .range([margin.left, width - margin.right]);
-
-        const color = d3.scaleOrdinal(d3.schemeSet2);
-
-        svg.append("g")
-            .attr("fill", d => color(d.group))
-          .selectAll("rect")
-          .data(data)
-          .join("rect")
-            .attr("x", x(0))
-            .attr("y", d => y(d.group))
-            .attr("width", d => x(d.total_sales) - x(0))
-            .attr("height", y.bandwidth())
-            .attr("rx", 7)
-            .attr("fill", (d, i) => color(i));
-
-        svg.append("g")
-            .attr("transform", `translate(0,${margin.top})`)
-            .call(d3.axisTop(x).ticks(width/120, "s"))
-            .call(g => g.select(".domain").remove());
-
-        svg.append("g")
-            .attr("transform", `translate(${margin.left},0)`)
-            .call(d3.axisLeft(y).tickSize(0))
-            .call(g => g.select(".domain").remove());
-
-        svg.selectAll("text.value")
-          .data(data)
-          .join("text")
-            .attr("class", "value")
-            .attr("x", d => x(d.total_sales) + 8)
-            .attr("y", d => y(d.group) + y.bandwidth()/2 + 3)
-            .text(d => d3.format(",.0f")(d.total_sales))
-            .attr("fill", "#1e293b")
-            .attr("font-size", "1.1rem");
-        </script>
-        """
-        st.write(f"### Top {TOP_N} {GROUP_LABEL}s by Sales (Realtime)")
-        components.html(d3_code, height=450)
