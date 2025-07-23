@@ -13,8 +13,9 @@ db = DatabaseManager()
 
 @st.cache_data(ttl=2)
 def get_recent_sales(n=10):
+    # Use correct column names: saletime not datetime
     return db.fetch_data(
-        f"SELECT saleid, datetime, totalamount FROM sales ORDER BY saleid DESC LIMIT {n}"
+        f"SELECT saleid, saletime, totalamount FROM sales ORDER BY saleid DESC LIMIT {n}"
     )
 
 @st.cache_data(ttl=2)
@@ -34,21 +35,21 @@ while True:
             time.sleep(REFRESH)
             continue
 
-        # Sort for better chart axis (oldest to newest)
+        # Ensure correct types for plotting
         sales_df = sales_df.sort_values("saleid")
-        sales_df['datetime'] = pd.to_datetime(sales_df['datetime'])
+        sales_df['saletime'] = pd.to_datetime(sales_df['saletime'])
 
-        # Plot sales totals
+        # Bar chart: sales over time (x=saletime, y=totalamount)
         st.subheader("Recent Sales (Total Amount)")
         st.bar_chart(
             data=sales_df,
-            x="datetime",
+            x="saletime",
             y="totalamount",
             use_container_width=True
         )
 
         # Select and plot items for a sale
-        saleids = sales_df['saleid'].tolist()[::-1]  # show newest first in dropdown
+        saleids = sales_df['saleid'].tolist()[::-1]  # newest first in dropdown
         selected = st.selectbox("Show items for Sale ID:", saleids)
         items_df = get_salesitems_for_sale(selected)
         st.subheader(f"Item Quantities for Sale {selected}")
