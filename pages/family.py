@@ -4,15 +4,14 @@ import json
 from db_handler import DatabaseManager
 import streamlit.components.v1 as components
 
-# optional auto‑refresh
 try:
     from streamlit_extras.st_autorefresh import st_autorefresh
 except ImportError:
     st_autorefresh = None
 
-# ───────── page config ─────────
+# ───── page setup ─────
 st.set_page_config(page_title="Family / Section Visuals", page_icon="🗃️")
-st.title("🗃️ Family / Section / Department / Class Visualisations")
+st.title("🗃️ Family / Section / Department / Class Visualisations")
 
 REFRESH  = st.sidebar.slider("Realtime refresh (s)", 2, 30, 5)
 NUM_SALE = st.sidebar.slider("Analyse last # sales", 5, 200, 50)
@@ -26,12 +25,12 @@ GROUP_COLS = [
 ]
 
 tab1, tab2, tab3 = st.tabs(
-    ["Catalog Structure", "Realtime Leaderboard", "Realtime Time‑series"]
+    ["Catalog Structure", "Realtime Leaderboard", "Realtime Time‑series"]
 )
 
 db = DatabaseManager()
 
-# ───────────────────────── TAB 1 ─────────────────────────
+# ─────────────────── TAB 1 ───────────────────
 with tab1:
     st.subheader("Catalogue distribution (item table)")
 
@@ -40,24 +39,17 @@ with tab1:
         return db.fetch_data(
             "SELECT familycat, sectioncat, departmentcat, classcat FROM item"
         )
-
     items_df = fetch_item_cats()
 
     for col, label in GROUP_COLS:
         st.markdown(f"#### {label}s")
         counts = (
-            items_df[col]
-            .fillna("Unknown")
-            .replace("", "Unknown")
-            .value_counts()
-            .reset_index()
-            .rename(columns={"index": label, col: "Count"})
+            items_df[col].fillna("Unknown").replace("", "Unknown")
+            .value_counts().reset_index().rename(columns={"index": label, col: "Count"})
         )
 
-        chart_data = [
-            {"group": str(r[0]), "count": int(r[1])}
-            for r in counts.itertuples(index=False, name=None)
-        ][:30]
+        chart_data   = [{"group": str(r[0]), "count": int(r[1])}
+                        for r in counts.itertuples(index=False, name=None)][:30]
         chart_json   = json.dumps(chart_data)
         chart_height = max(180, 100 + len(chart_data) * 18)
 
@@ -97,7 +89,7 @@ svg.selectAll("text.val").data(data).join("text")
 """
         components.html(d3_code, height=chart_height + 40)
 
-# ───────── helper to pull recent blocks (used by Tab 2 & 3) ─────────
+# ─── helper: pull recent blocks (used in Tab 2 & 3) ───
 @st.cache_data(ttl=2)
 def fetch_blocks(n_sales: int):
     sales = db.fetch_data(
@@ -127,7 +119,7 @@ def fetch_blocks(n_sales: int):
     )
     return sales, salesitems, items
 
-# ───────────────────────── TAB 2 ─────────────────────────
+# ─────────────────── TAB 2 ───────────────────
 with tab2:
     sel_col, sel_label = st.selectbox(
         "Leaderboard category:", GROUP_COLS, format_func=lambda x: x[1]
@@ -139,24 +131,16 @@ with tab2:
     if sales.empty or salesitems.empty or items.empty:
         st.info("No recent sales data.")
     else:
-        df = (
-            salesitems.merge(items, on="itemid", how="left")
-                      .merge(sales[["saleid", "saletime"]], on="saleid", how="left")
-        )
+        df = (salesitems.merge(items, on="itemid", how="left")
+                        .merge(sales[["saleid","saletime"]], on="saleid", how="left"))
         df[sel_col] = df[sel_col].fillna("Unknown").replace("", "Unknown")
 
-        top_groups = (
-            df.groupby(sel_col, dropna=False)["totalprice"]
-              .sum()
-              .sort_values(ascending=False)
-              .head(TOP_N)
-              .reset_index()
-        )
+        top_groups = (df.groupby(sel_col)["totalprice"].sum()
+                        .sort_values(ascending=False).head(TOP_N).reset_index())
 
-        rt_json = json.dumps([
-            {"group": str(r[sel_col]), "total_sales": float(r.totalprice)}
-            for _, r in top_groups.iterrows()
-        ])
+        rt_json = json.dumps([{"group": str(r[sel_col]),
+                               "total_sales": float(r.totalprice)}
+                               for _, r in top_groups.iterrows()])
 
         d3_rt = f"""
 <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -197,10 +181,11 @@ svg.selectAll("text.val").data(data).join("text")
         st.write(f"### Top {TOP_N} {sel_label}s — last {NUM_SALE} sales")
         components.html(d3_rt, height=450)
 
-# ───────────────────────── TAB 3 ─────────────────────────
+# ─────────────────── TAB 3 ───────────────────
 with tab3:
     ts_col, ts_label = st.selectbox(
-        "Time‑series category:", GROUP_COLS, format_func=lambda x: x[1], key="ts_sel"
+        "Time‑series category:", GROUP_COLS,
+        format_func=lambda x: x[1], key="ts_sel"
     )
     if st_autorefresh:
         st_autorefresh(interval=REFRESH * 1000, key="ts_refresh")
@@ -209,31 +194,19 @@ with tab3:
     if sales.empty or salesitems.empty or items.empty:
         st.info("No recent sales data.")
     else:
-        df = (
-            salesitems.merge(items, on="itemid", how="left")
-                      .merge(sales[["saleid", "saletime"]], on="saleid", how="left")
-        )
+        df = (salesitems.merge(items,on="itemid",how="left")
+                        .merge(sales[["saleid","saletime"]],on="saleid",how="left"))
         df[ts_col] = df[ts_col].fillna("Unknown").replace("", "Unknown")
         df["saletime"] = pd.to_datetime(df["saletime"])
+        df["t_min"]    = df["saletime"].dt.floor("T")
 
-        # aggregate per minute for smoother curves
-        df["t_min"] = df["saletime"].dt.floor("T")
+        ts_agg = (df.groupby([ts_col,"t_min"])["totalprice"]
+                    .sum().reset_index())
 
-        ts_agg = (
-            df.groupby([ts_col, "t_min"])["totalprice"]
-              .sum()
-              .reset_index()
-        )
-
-        # build data list for D3
-        ts_data = [
-            {
-                "group": str(row[ts_col]),
-                "date":  row["t_min"].strftime("%Y-%m-%dT%H:%M:%S"),
-                "value": float(row["totalprice"])
-            }
-            for _, row in ts_agg.iterrows()
-        ]
+        ts_data = [{"group": str(r[ts_col]),
+                    "date":  r["t_min"].strftime("%Y-%m-%dT%H:%M:%S"),
+                    "value": float(r["totalprice"])}
+                   for _, r in ts_agg.iterrows()]
         ts_json = json.dumps(ts_data)
 
         d3_ts = f"""
@@ -241,38 +214,24 @@ with tab3:
 <div id="ts_chart"></div>
 <script>
 const data={ts_json};
-
-// parse dates
 data.forEach(d=>d.date=new Date(d.date));
+const dataByCat=Array.from(d3.group(data,d=>d.group),
+                           ([key,values])=>({{key,values}}));
 
-// group by category
-const dataByCat = Array.from(d3.group(data,d=>d.group),
-                             ([key,values])=>({key,values}));
-
-const width=900,height=500,
-      margin={{top:40,right:40,bottom:40,left:80}};
-
-const x=d3.scaleUtc(
-    d3.extent(data,d=>d.date),
-    [margin.left,width-margin.right]
-);
-
-const y=d3.scaleLinear(
-    [0,d3.max(data,d=>d.value)*1.1],
-    [height-margin.bottom,margin.top]
-);
-
+const width=900,height=500,margin={{top:40,right:40,bottom:40,left:80}};
+const x=d3.scaleUtc(d3.extent(data,d=>d.date),
+                    [margin.left,width-margin.right]);
+const y=d3.scaleLinear([0,d3.max(data,d=>d.value)*1.1],
+                       [height-margin.bottom,margin.top]);
 const color=d3.scaleOrdinal(d3.schemeTableau10);
-const line=d3.line()
-    .x(d=>x(d.date))
-    .y(d=>y(d.value));
+
+const line=d3.line().x(d=>x(d.date)).y(d=>y(d.value));
 
 const svg=d3.select("#ts_chart").append("svg")
     .attr("width",width).attr("height",height)
     .attr("viewBox",[0,0,width,height])
     .attr("style","max-width:100%;height:auto;background:#fff;border-radius:14px;");
 
-// axes
 svg.append("g")
     .attr("transform",`translate(0,${{height-margin.bottom}})`)
     .call(d3.axisBottom(x).ticks(width/80).tickSizeOuter(0));
@@ -282,43 +241,30 @@ svg.append("g")
     .call(d3.axisLeft(y).ticks(height/50))
     .call(g=>g.select(".domain").remove())
     .call(g=>g.selectAll(".tick line").clone()
-        .attr("x2",width-margin.left-margin.right)
-        .attr("stroke-opacity",0.1))
+              .attr("x2",width-margin.left-margin.right).attr("stroke-opacity",0.1))
     .call(g=>g.append("text")
-        .attr("x",-margin.left+5)
-        .attr("y",10)
-        .attr("fill","currentColor")
-        .attr("text-anchor","start")
-        .text("Sales"));
+              .attr("x",-margin.left+5).attr("y",10)
+              .attr("fill","currentColor")
+              .attr("text-anchor","start").text("Sales"));
 
-// lines
-const g=svg.append("g")
-    .attr("fill","none")
-    .attr("stroke-width",2);
+const g=svg.append("g").attr("fill","none").attr("stroke-width",2);
 
 dataByCat.forEach((series,i)=>{{
     g.append("path")
       .datum(series.values)
       .attr("d",line)
       .attr("stroke",color(i));
-
     const last=series.values[series.values.length-1];
     if(last){{
         g.append("text")
-          .text(series.key)
-          .attr("x",x(last.date)+5)
-          .attr("y",y(last.value))
-          .attr("dy","0.32em")
-          .attr("fill",color(i))
-          .attr("font-size","0.9rem")
+          .text(series.key).attr("font-size","0.9rem")
+          .attr("x",x(last.date)+5).attr("y",y(last.value))
+          .attr("dy","0.32em").attr("fill",color(i))
           .attr("paint-order","stroke")
-          .attr("stroke","#fff")
-          .attr("stroke-width",4);
+          .attr("stroke","#fff").attr("stroke-width",4);
     }}
 }});
 </script>
 """
-        st.write(
-            f"### Realtime time‑series ({ts_label}s) &mdash; last {NUM_SALE} sales"
-        )
+        st.write(f"### Realtime time‑series ({ts_label}s) — last {NUM_SALE} sales")
         components.html(d3_ts, height=540)
