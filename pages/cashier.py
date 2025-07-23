@@ -35,7 +35,7 @@ if sales_df.empty:
 sales_df = sales_df.sort_values("saletime")
 sales_df['saletime'] = pd.to_datetime(sales_df['saletime'])
 
-tab1, tab2 = st.tabs(["Cashier Sales Chart", "Cashier Summary Table"])
+tab1, tab2 = st.tabs(["Cashier Sales Chart", "Cashier Summary"])
 
 with tab1:
     st.write("Last refreshed at", time.strftime("%H:%M:%S"))
@@ -143,6 +143,7 @@ with tab1:
 
 with tab2:
     st.subheader("Total Sales Summary by Cashier")
+
     summary = (
         sales_df
         .groupby("cashier")
@@ -157,11 +158,30 @@ with tab2:
         .sort_values("total_sales", ascending=False)
         .reset_index()
     )
-    # Format the numbers for better UX
+    # Format numbers for card display
     summary['total_sales'] = summary['total_sales'].map('{:,.2f}'.format)
     summary['avg_sale'] = summary['avg_sale'].map('{:,.2f}'.format)
     summary['max_sale'] = summary['max_sale'].map('{:,.2f}'.format)
     summary['min_sale'] = summary['min_sale'].map('{:,.2f}'.format)
     summary['last_sale'] = pd.to_datetime(summary['last_sale']).dt.strftime("%Y-%m-%d %H:%M:%S")
 
-    st.dataframe(summary, use_container_width=True)
+    # Show as cards (3 per row)
+    cols = st.columns(3)
+    for i, row in summary.iterrows():
+        with cols[i % 3]:
+            st.markdown(f"""
+<div style="background:linear-gradient(90deg, #dbeafe 0%, #f0fdfa 100%);border-radius:14px;padding:18px 20px;margin-bottom:18px;box-shadow:0 2px 8px #0001">
+  <h4 style="margin:0 0 8px 0;color:#2d3748;font-weight:800;font-size:1.2rem;letter-spacing:.5px;">{row['cashier']}</h4>
+  <div style="font-size:1.6rem;color:#2563eb;font-weight:700;">{row['total_sales']}</div>
+  <div style="color:#4b5563;">Total Sales</div>
+  <div style="margin-top:12px;">
+    <span style="font-weight:500;color:#059669;">{row['num_sales']}</span> sales<br/>
+    <span style="color:#2563eb;">Avg: {row['avg_sale']}</span> &nbsp;|&nbsp; 
+    <span style="color:#64748b;">Max: {row['max_sale']}</span> &nbsp;|&nbsp;
+    <span style="color:#64748b;">Min: {row['min_sale']}</span>
+  </div>
+  <div style="font-size:0.9rem;color:#64748b;margin-top:10px;">
+    Last sale: {row['last_sale']}
+  </div>
+</div>
+""", unsafe_allow_html=True)
