@@ -27,12 +27,6 @@ def get_recent_sales(n=10):
         f"SELECT saleid, saletime, totalamount FROM sales ORDER BY saleid DESC LIMIT {n}"
     )
 
-@st.cache_data(ttl=2)
-def get_salesitems_for_sale(saleid):
-    return db.fetch_data(
-        "SELECT itemid, quantity, unitprice, totalprice FROM salesitems WHERE saleid = %s ORDER BY salesitemid", (saleid,)
-    )
-
 st.write("Last refreshed at", time.strftime("%H:%M:%S"))
 
 sales_df = get_recent_sales(NUM_SALES)
@@ -106,20 +100,3 @@ svg.append("path")
 """
 
 components.html(d3_code, height=420)
-
-# Select and plot items for a sale (key changes every rerun = always unique)
-saleids = sales_df['saleid'].tolist()[::-1]
-selected = st.selectbox("Show items for Sale ID:", saleids, key=f"saleid_select_{time.time_ns()}")
-items_df = get_salesitems_for_sale(selected)
-st.subheader(f"Item Quantities for Sale {selected}")
-
-if items_df.empty:
-    st.info("No items for this sale.")
-else:
-    chart_df = items_df.groupby("itemid", as_index=False)["quantity"].sum()
-    st.bar_chart(
-        data=chart_df,
-        x="itemid",
-        y="quantity",
-        use_container_width=True
-    )
