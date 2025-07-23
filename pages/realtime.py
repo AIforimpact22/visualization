@@ -47,11 +47,11 @@ while True:
         ]
         chart_json = json.dumps(chart_data)
 
-        d3_code = f"""
+        d3_code = """
         <script src="https://d3js.org/d3.v7.min.js"></script>
         <div id="chart"></div>
         <script>
-        const sales = {chart_json};
+        const sales = """ + chart_json + """;
         const width = 928, height = 400;
         const marginTop = 20, marginRight = 30, marginBottom = 30, marginLeft = 60;
 
