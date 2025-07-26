@@ -39,6 +39,9 @@ sales_pivot = (
     .unstack()
 )
 
+# Cast to float and fill NaN just in case
+sales_pivot = sales_pivot.astype(float).fillna(0.0)
+
 # Optionally, add "Month-Day" as row labels
 sales_pivot.index = [f"{d.strftime('%b')}-{d.day:02d}" for d in sales_pivot.index]
 
