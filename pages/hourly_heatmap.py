@@ -50,7 +50,8 @@ fig = px.imshow(
     x=pivot.columns,
     y=pivot.index,
     aspect="auto",
-    color_continuous_scale="Viridis",
+    color_continuous_scale="RdBu_r",  # Blue to Red
+    origin="lower"
 )
 
 fig.update_layout(
@@ -62,4 +63,4 @@ fig.update_xaxes(type='category')
 fig.update_yaxes(type='category')
 
 st.plotly_chart(fig, use_container_width=True)
-st.caption("Each cell shows the total sales for that day/hour (last N sales).")
+st.caption("Each cell shows the total sales for that day/hour (last N sales). Blue = low, Red = high.")
