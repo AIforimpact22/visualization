@@ -42,7 +42,7 @@ sales_pivot.index = [f"{d.strftime('%b')}-{d.day:02d}" for d in sales_pivot.inde
 
 # Bigger/clearer bar height: min 0.5 inch per day, up to 1 inch per row
 per_day_height = 0.65  # try 0.65-1 for chunkier rows
-fig_height = max(8, per_day_height * len(sales_pivot))
+fig_height = max(12, per_day_height * len(sales_pivot))
 fig, ax = plt.subplots(figsize=(18, fig_height))
 
 sns.heatmap(
